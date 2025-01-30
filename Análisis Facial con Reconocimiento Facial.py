@@ -10,6 +10,10 @@ import face_recognition
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image, ImageTk
+import warnings
+
+# Suprimir las advertencias específicas
+warnings.filterwarnings("ignore", message="Ignoring fixed y limits to fulfill fixed data aspect with adjustable data limits.")
 
 # Diccionario de traducción de emociones
 emociones_traducidas = {
@@ -28,7 +32,7 @@ clientes_path = "Clientes"
 class Analizador:
     def __init__(self):
         self.resultados_clientes = Counter()
-        self.resultados_desconocidos = Counter()
+        self.resultados_general = Counter()
         self.rostros_codificados = []
         self.nombres_clientes = []
         self.running = False
@@ -64,13 +68,13 @@ class Analizador:
         graficas_frame.pack(side=tk.TOP, pady=10, fill=tk.BOTH, expand=True)
 
         # Figura para las gráficas
-        self.figura, (self.ax_clientes, self.ax_desconocidos) = plt.subplots(1, 2, figsize=(10, 5))
+        self.figura, (self.ax_clientes, self.ax_general) = plt.subplots(1, 2, figsize=(10, 5))
         self.figura.suptitle("Distribución de Emociones Detectadas")
 
-        self.ax_clientes.set_title("Clientes")
-        self.ax_desconocidos.set_title("Desconocidos")
+        self.ax_clientes.set_title("Cliente")
+        self.ax_general.set_title("General")
         self.ax_clientes.axis("equal")
-        self.ax_desconocidos.axis("equal")
+        self.ax_general.axis("equal")
 
         # Canvas para incrustar la gráfica en la interfaz
         self.canvas_grafico = FigureCanvasTkAgg(self.figura, master=graficas_frame)
@@ -93,7 +97,7 @@ class Analizador:
     def analizar_video(self, fuente):
         """Analiza un video y detecta emociones y rostros en tiempo real."""
         self.resultados_clientes.clear()
-        self.resultados_desconocidos.clear()
+        self.resultados_general.clear()
         self.running = True  
         self.cap = cv2.VideoCapture(fuente)
 
@@ -126,13 +130,29 @@ class Analizador:
 
                     # Registrar emoción en el grupo correspondiente
                     if nombre == "Desconocido":
-                        self.resultados_desconocidos[emocion] += 1
+                        self.resultados_general[emocion] += 1
                     else:
                         self.resultados_clientes[emocion] += 1
 
                     # Mostrar en pantalla
                     cv2.rectangle(rgb_frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                    cv2.putText(rgb_frame, f"{nombre}: {emocion}", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+                    # Crear un fondo blanco detrás del texto
+                    text = f"{nombre}: {emocion}"
+                    text_size = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
+                    text_width, text_height = text_size
+
+                    # Coordenadas para el rectángulo blanco
+                    rect_x = left
+                    rect_y = top - 30
+                    rect_width = text_width + 10
+                    rect_height = text_height + 10
+
+                    # Dibujar el rectángulo blanco
+                    cv2.rectangle(rgb_frame, (rect_x, rect_y), (rect_x + rect_width, rect_y + rect_height), (255, 255, 255), -1)
+
+                    # Dibujar el texto en negro sobre el fondo blanco
+                    cv2.putText(rgb_frame, text, (left + 5, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
                 except Exception as e:
                     print(f"Error al analizar emoción: {e}")
 
@@ -163,11 +183,11 @@ class Analizador:
         figura, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
         figura.suptitle("Resumen de Emociones")
 
-        ax1.pie(self.resultados_clientes.values(), labels=self.resultados_clientes.keys(), autopct='%1.1f%%')
-        ax1.set_title("Clientes")
+        ax1.pie(self.resultados_clientes.values(), labels=self.resultados_clientes.keys(), autopct='%1.1f%%', colors=plt.cm.Pastel1.colors)
+        ax1.set_title("Cliente")
 
-        ax2.pie(self.resultados_desconocidos.values(), labels=self.resultados_desconocidos.keys(), autopct='%1.1f%%')
-        ax2.set_title("Desconocidos")
+        ax2.pie(self.resultados_general.values(), labels=self.resultados_general.keys(), autopct='%1.1f%%', colors=plt.cm.Pastel1.colors)
+        ax2.set_title("General")
 
         canvas = FigureCanvasTkAgg(figura, master=ventana_resumen)
         canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -176,18 +196,18 @@ class Analizador:
     def actualizar_grafico(self):
         """Actualiza las gráficas en la interfaz."""
         self.ax_clientes.clear()
-        self.ax_clientes.set_title("Clientes")
+        self.ax_clientes.set_title("Cliente")
         self.ax_clientes.axis("equal")
 
-        self.ax_desconocidos.clear()
-        self.ax_desconocidos.set_title("Desconocidos")
-        self.ax_desconocidos.axis("equal")
+        self.ax_general.clear()
+        self.ax_general.set_title("General")
+        self.ax_general.axis("equal")
 
         if self.resultados_clientes:
-            self.ax_clientes.pie(self.resultados_clientes.values(), labels=self.resultados_clientes.keys(), autopct='%1.1f%%')
+            self.ax_clientes.pie(self.resultados_clientes.values(), labels=self.resultados_clientes.keys(), autopct='%1.1f%%', colors=plt.cm.Pastel1.colors)
 
-        if self.resultados_desconocidos:
-            self.ax_desconocidos.pie(self.resultados_desconocidos.values(), labels=self.resultados_desconocidos.keys(), autopct='%1.1f%%')
+        if self.resultados_general:
+            self.ax_general.pie(self.resultados_general.values(), labels=self.resultados_general.keys(), autopct='%1.1f%%', colors=plt.cm.Pastel1.colors)
 
         self.canvas_grafico.draw()
 
@@ -206,3 +226,4 @@ class Analizador:
 # Ejecutar la aplicación
 analizador = Analizador()
 analizador.iniciar()
+
